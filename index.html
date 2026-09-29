@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulator Lintasan Terpendek</title>
+<style>
+:root{
+  --bg:#071326; --bg2:#0b1c35; --card:#0e2340; --card2:#112b4d;
+  --line:#294668; --text:#eaf2ff; --muted:#9eb2ce; --blue:#4f8cff;
+  --indigo:#7c6cff; --green:#35d49a; --orange:#ff9f43; --red:#ff647c;
+  --shadow:0 16px 45px rgba(0,0,0,.28);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; color:var(--text); font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  background:
+    radial-gradient(circle at 10% 0%,rgba(79,140,255,.18),transparent 30%),
+    radial-gradient(circle at 90% 10%,rgba(124,108,255,.16),transparent 28%),
+    linear-gradient(145deg,var(--bg),var(--bg2) 60%,#08172c);
+  min-height:100vh;
+}
+button,select,input{font:inherit}
+button{cursor:pointer}
+.app{max-width:1500px;margin:auto;padding:24px}
+header{padding:10px 4px 20px}
+.eyebrow{font-size:.78rem;text-transform:uppercase;letter-spacing:.16em;color:#8ca8d2;font-weight:800}
+h1{font-size:clamp(2rem,4vw,3.3rem);margin:6px 0 7px;line-height:1.05}
+.subtitle{margin:0;color:var(--muted);font-size:1rem}
+.toolbar,.card,.info-strip{
+  background:linear-gradient(180deg,rgba(17,43,77,.92),rgba(10,31,56,.94));
+  border:1px solid rgba(113,150,197,.2); border-radius:18px; box-shadow:var(--shadow);
+}
+.toolbar{padding:13px;display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:15px}
+.group{display:flex;gap:7px;align-items:center}
+.sep{height:30px;width:1px;background:var(--line);margin:0 3px}
+button,.select{
+  border:1px solid rgba(125,158,202,.24); color:var(--text);
+  background:#122c4d;border-radius:10px;padding:9px 12px;transition:.18s;
+}
+button:hover{transform:translateY(-1px);background:#18385f}
+button.active{background:linear-gradient(135deg,#386fd1,#6556d8);border-color:transparent}
+button.danger{background:#3a1f31;color:#ffdce2}
+select{appearance:auto}
+label{color:var(--muted);font-size:.88rem}
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:15px}
+.card{padding:15px}
+.graph-card{padding:10px}
+.graph-head,.section-head{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:5px 5px 12px}
+.graph-head h2,.section-head h2{font-size:1.05rem;margin:0}
+.hint{color:var(--muted);font-size:.82rem}
+#graph{width:100%;height:590px;display:block;border-radius:14px;
+  background:
+    linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px),
+    radial-gradient(circle at center,rgba(62,115,187,.12),transparent 65%);
+  background-size:32px 32px,32px 32px,100% 100%;
+  border:1px solid rgba(116,151,198,.13);
+}
+.side-panel{display:flex;flex-direction:column;gap:15px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat{padding:11px;border-radius:12px;background:#0b2039;border:1px solid rgba(113,150,197,.15)}
+.stat b{display:block;font-size:1.15rem}.stat span{font-size:.75rem;color:var(--muted)}
+.controls{display:grid;gap:10px}
+.field{display:grid;gap:6px}
+select{width:100%;padding:10px;border-radius:10px;background:#0a1d35;color:var(--text);border:1px solid rgba(125,158,202,.24)}
+.run{width:100%;padding:12px;background:linear-gradient(135deg,#3979df,#705be2);border:0;font-weight:800}
+.status{font-size:.82rem;color:var(--muted);line-height:1.45;padding:10px;border-radius:10px;background:#0a1b31}
+.info-strip{margin-top:15px;padding:10px;display:flex;gap:8px;flex-wrap:wrap}
+.info-chip{padding:7px 10px;border-radius:999px;background:#0a1e37;color:#abc0dc;font-size:.78rem}
+.info-chip b{color:#fff}
+.results{margin-top:15px}
+.method-box{padding:13px;border-radius:13px;background:#0a1d34;border:1px solid rgba(113,150,197,.14);margin-bottom:13px}
+.method-box h3{margin:0 0 8px;font-size:1rem}
+.formula{font-family:ui-monospace,SFMono-Regular,monospace;color:#b9cbff;background:#0a1730;padding:9px;border-radius:9px;display:inline-block}
+.table-wrap{overflow:auto;border:1px solid rgba(113,150,197,.16);border-radius:12px;margin-top:9px}
+table{width:100%;border-collapse:collapse;min-width:560px}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid rgba(113,150,197,.13);font-size:.82rem;white-space:nowrap}
+th{background:#102b4b;color:#c8d8ee;position:sticky;top:0;z-index:1}
+tr:last-child td{border-bottom:0}
+.result-row:hover td{background:rgba(79,140,255,.08)}
+.result-row{cursor:pointer}
+.inf{color:#93a7c4}.ok{color:#71e4b8}.warn{color:#ffb1bd}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.75rem;color:var(--muted)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px}
+.empty{padding:30px;text-align:center;color:var(--muted)}
+svg text{user-select:none}
+.edge{stroke:#7891b2;stroke-width:2.2;opacity:.9}
+.edge.highlight{stroke:var(--orange);stroke-width:5;filter:drop-shadow(0 0 5px rgba(255,159,67,.45))}
+.edge-label{fill:#dbe8fa;font-size:13px;font-weight:800;paint-order:stroke;stroke:#08182c;stroke-width:5px;stroke-linejoin:round}
+.node{fill:#183452;stroke:#8ca9ca;stroke-width:2.2;cursor:pointer;transition:.15s}
+.node:hover{fill:#234b75}
+.node.source{fill:#168e69;stroke:#75e6bd}
+.node.target{fill:#a94459;stroke:#ff9bad}
+.node.path{fill:#b96a20;stroke:#ffd095}
+.node.selected{stroke:#fff;stroke-width:4}
+.node-label{fill:#fff;font-weight:900;font-size:13px;pointer-events:none;text-anchor:middle;dominant-baseline:middle}
+.arrow{fill:#7891b2}
+.arrow.highlight{fill:var(--orange)}
+.node-text{fill:#dce9fa;font-size:11px}
+.toast{position:fixed;right:20px;bottom:20px;max-width:380px;padding:13px 15px;background:#112b4b;border:1px solid #3c5d82;border-radius:12px;box-shadow:var(--shadow);opacity:0;transform:translateY(10px);pointer-events:none;transition:.2s;z-index:20}
+.toast.show{opacity:1;transform:none}
+@media(max-width:1000px){.workspace{grid-template-columns:1fr} .side-panel{display:grid;grid-template-columns:1fr 1fr}.graph-card{min-width:0}}
+@media(max-width:700px){.app{padding:12px}.side-panel{display:flex}.toolbar{align-items:stretch}.sep{display:none}#graph{height:460px}h1{font-size:2rem}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="eyebrow">Teori Graf • Simulator Pembelajaran</div>
+  <h1>Simulator Lintasan Terpendek</h1>
+  <p class="subtitle">Bellman-Ford, Johnson &amp; A* untuk Graf Berarah dan Tak Berarah</p>
+</header>
+
+<div class="toolbar">
+  <div class="group">
+    <select id="graphType" title="Jenis graf">
+      <option value="directed">Berarah</option>
+      <option value="undirected">Tak Berarah</option>
+    </select>
+  </div>
+  <div class="sep"></div>
+  <div class="group">
+    <button id="addNodeBtn">＋ Simpul</button>
+    <button id="addEdgeBtn">＋ Sisi</button>
+    <button id="deleteNodeBtn" class="danger">Hapus Simpul</button>
+    <button id="resetBtn">Reset Contoh</button>
+    <button id="clearBtn" class="danger">Kosongkan</button>
+  </div>
+  <div class="sep"></div>
+  <div class="group">
+    <button class="methodBtn active" data-method="bellman">Bellman-Ford</button>
+    <button class="methodBtn" data-method="johnson">Johnson</button>
+    <button class="methodBtn" data-method="astar">A* (A-Star)</button>
+  </div>
+</div>
+
+<div class="workspace">
+  <section class="card graph-card">
+    <div class="graph-head">
+      <div>
+        <h2>Visualisasi Graf</h2>
+        <div id="graphHint" class="hint">Klik simpul saat mode “＋ Simpul / ＋ Sisi” aktif.</div>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:#168e69"></i>Sumber</span>
+        <span><i class="dot" style="background:#b96a20"></i>Lintasan</span>
+        <span><i class="dot" style="background:#a94459"></i>Tujuan</span>
+      </div>
+    </div>
+    <svg id="graph" viewBox="0 0 1000 590" aria-label="Visualisasi graf interaktif"></svg>
+  </section>
+
+  <aside class="side-panel">
+    <div class="card">
+      <div class="section-head"><h2>Pengaturan Lintasan</h2></div>
+      <div class="controls">
+        <div class="field"><label for="sourceSelect">Simpul Awal</label><select id="sourceSelect"></select></div>
+        <button id="runBtn" class="run">▶ Jalankan Algoritma</button>
+        <div id="status" class="status">Pilih sumber dan metode, lalu jalankan algoritma.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-head"><h2>Informasi Graf</h2></div>
+      <div class="stat-grid">
+        <div class="stat"><b id="nodeCount">0</b><span>Jumlah Simpul</span></div>
+        <div class="stat"><b id="edgeCount">0</b><span>Jumlah Sisi</span></div>
+        <div class="stat"><b id="typeStat">Berarah</b><span>Jenis Graf</span></div>
+        <div class="stat"><b id="methodStat">Bellman-Ford</b><span>Metode Aktif</span></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="info-strip">
+  <span class="info-chip">Sumber: <b id="sourceStat">—</b></span>
+  <span class="info-chip">Mode: <b id="modeStat">Pilih aksi</b></span>
+  <span class="info-chip">Interaksi: <b>Klik simpul untuk memilih/menyorot</b></span>
+</div>
+
+<section id="results" class="card results">
+  <div class="section-head">
+    <div><h2>Hasil Penyelesaian</h2><div class="hint" id="resultMeta">Belum ada algoritma yang dijalankan.</div></div>
+  </div>
+  <div id="resultContent"><div class="empty">Jalankan salah satu metode untuk melihat proses algoritma dan hasil shortest path.</div></div>
+</section>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+'use strict';
+
+const svg = document.getElementById('graph');
+const NS = 'http://www.w3.org/2000/svg';
+const state = {
+  type:'directed', method:'bellman', mode:null, nodes:[], edges:[],
+  selectedNode:null, edgeStart:null, highlightedEdges:new Set(),
+  result:null, astarLogs:[], dragging:null
+};
+let nextId=0;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+
+function nodeName(i){ return i<26 ? String.fromCharCode(65+i) : 'N'+(i-25); }
+function getNode(id){return state.nodes.find(n=>n.id===id)}
+function fmt(x){return Number.isFinite(x)?String(x):'∞'}
+function edgePairs(){
+  return state.edges.map(e=>({u:e.u,v:e.v,w:e.w,id:e.id}));
+}
+function effectiveEdges(){
+  const a=[];
+  state.edges.forEach(e=>{
+    a.push({u:e.u,v:e.v,w:e.w,id:e.id});
+    if(state.type==='undirected') a.push({u:e.v,v:e.u,w:e.w,id:e.id+'r'});
+  });
+  return a;
+}
+function showToast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(showToast.timer); showToast.timer=setTimeout(()=>t.classList.remove('show'),2600);
+}
+function setStatus(msg, cls=''){ $('status').innerHTML=msg; $('status').className='status '+cls; }
+function clearResult(){state.result=null;state.astarLogs=[];state.highlightedEdges.clear();renderResults();renderGraph()}
+
+function resetExample(){
+  state.nodes=[
+    {id:'A',x:220,y:180},{id:'B',x:490,y:130},{id:'C',x:470,y:330},{id:'D',x:750,y:300}
+  ];
+  state.edges=[
+    {id:'e1',u:'A',v:'B',w:4},{id:'e2',u:'A',v:'C',w:5},
+    {id:'e3',u:'B',v:'C',w:2},{id:'e4',u:'B',v:'D',w:6},{id:'e5',u:'C',v:'D',w:3}
+  ];
+  nextId=0; state.selectedNode=null;state.edgeStart=null;state.mode=null;
+  clearResult(); updateAll(); setStatus('Contoh graf dimuat. Sumber default: A.');
+}
+function clearGraph(){
+  state.nodes=[];state.edges=[];state.selectedNode=null;state.edgeStart=null;state.mode=null;
+  clearResult();updateAll();setStatus('Graf kosong. Aktifkan ＋ Simpul untuk mulai.');
+}
+function updateAll(){
+  $('nodeCount').textContent=state.nodes.length;
+  $('edgeCount').textContent=state.edges.length;
+  $('typeStat').textContent=state.type==='directed'?'Berarah':'Tak Berarah';
+  $('methodStat').textContent=methodName();
+  $('sourceStat').textContent=$('sourceSelect').value||'—';
+  $('modeStat').textContent=state.mode==='addNode'?'＋ Simpul':state.mode==='addEdge'?'＋ Sisi':state.mode==='delete'?'Hapus Simpul':'Pilih/lihat lintasan';
+  updateSourceOptions();renderGraph();
+}
+function updateSourceOptions(){
+  const old=$('sourceSelect').value;
+  $('sourceSelect').innerHTML=state.nodes.map(n=>`<option value="${esc(n.id)}">${esc(n.id)}</option>`).join('');
+  if(state.nodes.some(n=>n.id===old)) $('sourceSelect').value=old;
+  else if(state.nodes.length) $('sourceSelect').value=state.nodes[0].id;
+  $('sourceStat').textContent=$('sourceSelect').value||'—';
+}
+function methodName(){return state.method==='bellman'?'Bellman-Ford':state.method==='johnson'?'Johnson':'A* (A-Star)'}
+
+function svgEl(tag,attrs={}){
+  const e=document.createElementNS(NS,tag);
+  Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));
+  return e;
+}
+function pointOnLine(a,b,pad=23){
+  const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;
+  return {x1:a.x+dx/d*pad,y1:a.y+dy/d*pad,x2:b.x-dx/d*pad,y2:b.y-dy/d*pad,dx,dy,d};
+}
+function renderGraph(){
+  svg.innerHTML='';
+  const defs=svgEl('defs');
+  const marker=svgEl('marker',{id:'arrow',viewBox:'0 0 10 10',refX:'9',refY:'5',markerWidth:'7',markerHeight:'7',orient:'auto-start-reverse'});
+  marker.appendChild(svgEl('path',{d:'M 0 0 L 10 5 L 0 10 z',class:'arrow'})); defs.appendChild(marker);
+  const marker2=svgEl('marker',{id:'arrowHot',viewBox:'0 0 10 10',refX:'9',refY:'5',markerWidth:'7',markerHeight:'7',orient:'auto-start-reverse'});
+  marker2.appendChild(svgEl('path',{d:'M 0 0 L 10 5 L 0 10 z',class:'arrow highlight'})); defs.appendChild(marker2);
+  svg.appendChild(defs);
+
+  state.edges.forEach(e=>{
+    const a=getNode(e.u),b=getNode(e.v); if(!a||!b)return;
+    const p=pointOnLine(a,b);
+    const hot=state.highlightedEdges.has(e.id);
+    const line=svgEl('line',{x1:p.x1,y1:p.y1,x2:p.x2,y2:p.y2,class:'edge'+(hot?' highlight':'')});
+    if(state.type==='directed') line.setAttribute('marker-end',hot?'url(#arrowHot)':'url(#arrow)');
+    svg.appendChild(line);
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+    const txt=svgEl('text',{x:mx,y:my-7,class:'edge-label','text-anchor':'middle'});txt.textContent=e.w;svg.appendChild(txt);
+  });
+
+  state.nodes.forEach(n=>{
+    const g=svgEl('g',{transform:`translate(${n.x},${n.y})`});
+    const isPath=state.highlightedNodes?.has(n.id);
+    const cls='node'+(n.id===state.sourceId?' source':'')+(isPath?' path':'')+
+      (n.id===state.selectedNode?' selected':'')+(n.id===state.targetId?' target':'');
+    const c=svgEl('circle',{r:23,class:cls});
+    c.addEventListener('mousedown',ev=>nodeMouseDown(ev,n));
+    c.addEventListener('click',ev=>{ev.stopPropagation();nodeClick(n)});
+    g.appendChild(c);
+    const label=svgEl('text',{class:'node-label'});label.textContent=n.id;g.appendChild(label);
+    svg.appendChild(g);
+  });
+}
+state.highlightedNodes=new Set();
+
+function nodeMouseDown(ev,n){
+  if(state.mode==='addNode')return;
+  if(state.mode==='addEdge')return;
+  if(state.mode==='delete')return;
+  state.dragging={id:n.id,ox:ev.clientX,oy:ev.clientY,x:n.x,y:n.y};
+}
+window.addEventListener('mousemove',ev=>{
+  if(!state.dragging)return;
+  const rect=svg.getBoundingClientRect(), sx=1000/rect.width, sy=590/rect.height;
+  const n=getNode(state.dragging.id); if(!n)return;
+  n.x=Math.max(30,Math.min(970,state.dragging.x+(ev.clientX-state.dragging.ox)*sx));
+  n.y=Math.max(30,Math.min(560,state.dragging.y+(ev.clientY-state.dragging.oy)*sy));
+  renderGraph();
+});
+window.addEventListener('mouseup',()=>state.dragging=null);
+
+function nodeClick(n){
+  if(state.mode==='addEdge'){
+    if(!state.edgeStart){state.edgeStart=n.id;setStatus(`Simpul pertama: <b>${esc(n.id)}</b>. Sekarang klik simpul kedua.`);renderGraph();return}
+    if(state.edgeStart===n.id){showToast('Pilih dua simpul yang berbeda.');return}
+    const u=state.edgeStart,v=n.id;
+    const existing=state.edges.find(e=>(e.u===u&&e.v===v)||(state.type==='undirected'&&e.u===v&&e.v===u));
+    if(existing){showToast('Sisi antara kedua simpul sudah ada.');state.edgeStart=null;return}
+    const raw=prompt(`Masukkan bobot sisi ${u} ${state.type==='directed'?'→':'—'} ${v}`);
+    if(raw===null){state.edgeStart=null;return}
+    const w=Number(raw);
+    if(!Number.isFinite(w)){showToast('Bobot harus berupa angka.');return}
+    state.edges.push({id:'e'+Date.now()+Math.random(),u,v,w});
+    state.edgeStart=null;clearResult();updateAll();setStatus('Sisi berhasil ditambahkan.');
+    return;
+  }
+  if(state.mode==='delete'){
+    deleteNode(n.id);return;
+  }
+  state.selectedNode=n.id;
+  if(state.result && state.result.paths && state.result.paths[n.id]){
+    highlightPath(state.result.paths[n.id]);
+    state.targetId=n.id;renderGraph();
+  }
+}
+function deleteNode(id){
+  state.nodes=state.nodes.filter(n=>n.id!==id);
+  state.edges=state.edges.filter(e=>e.u!==id&&e.v!==id);
+  state.selectedNode=null;clearResult();updateAll();setStatus(`Simpul ${esc(id)} dan sisi yang terhubung telah dihapus.`);
+}
+svg.addEventListener('click',ev=>{
+  if(state.mode!=='addNode')return;
+  const rect=svg.getBoundingClientRect();
+  const x=(ev.clientX-rect.left)*1000/rect.width,y=(ev.clientY-rect.top)*590/rect.height;
+  const used=new Set(state.nodes.map(n=>n.id));let i=0,name;
+  do{name=nodeName(state.nodes.length+i);i++}while(used.has(name));
+  state.nodes.push({id:name,x,y});clearResult();updateAll();setStatus(`Simpul <b>${name}</b> dibuat. Klik area lain untuk simpul berikutnya.`);
+});
+
+function highlightPath(path){
+  state.highlightedEdges.clear();state.highlightedNodes=new Set(path||[]);
+  for(let i=0;i<(path?.length||0)-1;i++){
+    const a=path[i],b=path[i+1];
+    const e=state.edges.find(x=>(x.u===a&&x.v===b)||(state.type==='undirected'&&x.u===b&&x.v===a));
+    if(e)state.highlightedEdges.add(e.id);
+  }
+}
+
+function neighbors(u){
+  return effectiveEdges().filter(e=>e.u===u);
+}
+function bellmanFord(source, edgeList=effectiveEdges(), verts=state.nodes.map(n=>n.id)){
+  const d=Object.fromEntries(verts.map(v=>[v,Infinity]));
+  const p=Object.fromEntries(verts.map(v=>[v,null]));
+  d[source]=0;
+  const iterations=[{i:0,d:{...d}}], relax=[];
+  let changed=false;
+  for(let i=1;i<=verts.length-1;i++){
+    changed=false;
+    for(const e of edgeList){
+      if(Number.isFinite(d[e.u]) && d[e.u]+e.w<d[e.v]){
+        const old=d[e.v],cand=d[e.u]+e.w;
+        d[e.v]=cand;p[e.v]=e.u;changed=true;
+        relax.push({i,s:e.u+' → '+e.v,old,cand,nw:cand});
+      }
+    }
+    iterations.push({i,d:{...d}});
+    if(!changed)break;
+  }
+  let negative=false;
+  for(const e of edgeList) if(Number.isFinite(d[e.u]) && d[e.u]+e.w<d[e.v]) negative=true;
+  return {d,p,iterations,relax,negative};
+}
+function reconstructPaths(source,p,d){
+  const paths={};
+  for(const v of Object.keys(d)){
+    if(!Number.isFinite(d[v])){paths[v]=null;continue}
+    const arr=[];let cur=v,guard=0;
+    while(cur!==null&&guard++<=Object.keys(d).length){arr.unshift(cur);if(cur===source)break;cur=p[cur]}
+    paths[v]=arr[0]===source?arr:null;
+  }
+  return paths;
+}
+function dijkstra(source,edges,verts,useReweighted=false){
+  const d=Object.fromEntries(verts.map(v=>[v,Infinity]));
+  const p=Object.fromEntries(verts.map(v=>[v,null]));
+  const used=new Set();
+  d[source]=0;
+
+  for(let k=0;k<verts.length;k++){
+    let u=null,best=Infinity;
+
+    for(const v of verts){
+      if(!used.has(v) && d[v]<best){
+        best=d[v];
+        u=v;
+      }
+    }
+
+    if(u===null)break;
+    used.add(u);
+
+    edges.filter(e=>e.u===u).forEach(e=>{
+      // Johnson harus menjalankan Dijkstra pada bobot hasil reweighting.
+      // Untuk Dijkstra biasa, tetap gunakan e.w.
+      const w=useReweighted ? e.rw : e.w;
+
+      if(d[u]+w<d[e.v]){
+        d[e.v]=d[u]+w;
+        p[e.v]=u;
+      }
+    });
+  }
+
+  return {d,p};
+}
+function johnson(){
+  const verts=state.nodes.map(n=>n.id);
+  const base=effectiveEdges();
+  const q='__q__', ext=base.concat(verts.map(v=>({u:q,v,w:0,id:'q'+v})));
+  const bf=bellmanFord(q,ext,[q,...verts]);
+  if(bf.negative)return {negative:true,bf};
+  const h=bf.d;
+  const rew=base.map(e=>({...e,rw:e.w+h[e.u]-h[e.v]}));
+  const all=[], matrices={}, paths={};
+  verts.forEach(s=>{
+    const dj=dijkstra(s,rew,verts,true);matrices[s]=dj;
+    verts.forEach(t=>{
+      const real=Number.isFinite(dj.d[t])?dj.d[t]-h[s]+h[t]:Infinity;
+      all.push({from:s,to:t,rw:dj.d[t],dist:real,path:null});
+      const pp=reconstructPaths(s,dj.p,dj.d); paths[`${s}|${t}`]=pp[t];
+      all[all.length-1].path=pp[t];
+    });
+  });
+  return {negative:false,h,rew,matrices,all,paths,bf};
+}
+function heuristic(a,b){
+  const A=getNode(a),B=getNode(b);
+  if(!A||!B)return 0;
+  const d=Math.hypot(A.x-B.x,A.y-B.y);
+  const positive=state.edges.filter(e=>e.w>0).map(e=>e.w);
+  const scale=positive.length?Math.min(...positive)/80:1;
+  return d*scale;
+}
+function astarOne(source,target){
+  if(source===target)return {dist:0,path:[source],logs:[{i:0,current:source,g:0,h:0,f:0}]};
+  const g=Object.fromEntries(state.nodes.map(n=>[n.id,Infinity])),p=Object.fromEntries(state.nodes.map(n=>[n.id,null]));
+  const open=new Set([source]),closed=new Set(),logs=[];g[source]=0;let iter=0;
+  while(open.size){
+    let current=null,best=Infinity;
+    for(const n of open){const f=g[n]+heuristic(n,target);if(f<best){best=f;current=n}}
+    const hcur=heuristic(current,target);
+    logs.push({i:++iter,current,g:g[current],h:hcur,f:g[current]+hcur});
+    if(current===target){
+      const path=[];let x=current,guard=0;while(x&&guard++<=state.nodes.length){path.unshift(x);if(x===source)break;x=p[x]}
+      return {dist:g[target],path,logs};
+    }
+    open.delete(current);closed.add(current);
+    neighbors(current).forEach(e=>{
+      if(closed.has(e.v))return;
+      const cand=g[current]+e.w;
+      if(cand<g[e.v]){g[e.v]=cand;p[e.v]=current;open.add(e.v)}
+    });
+  }
+  return {dist:Infinity,path:null,logs};
+}
+function runAstar(source){
+  const rows=[],logsByTarget={};
+  for(const n of state.nodes){
+    const r=astarOne(source,n.id);rows.push({to:n.id,dist:r.dist,path:r.path});logsByTarget[n.id]=r.logs;
+  }
+  return {rows,logsByTarget,paths:Object.fromEntries(rows.map(r=>[r.to,r.path]))};
+}
+
+function runAlgorithm(){
+  if(state.nodes.length<2){showToast('Minimal diperlukan 2 simpul untuk menjalankan algoritma.');return}
+  const source=$('sourceSelect').value;
+  state.sourceId=source;state.targetId=null;state.highlightedNodes=new Set();state.highlightedEdges.clear();
+  if(state.method==='bellman'){
+    const r=bellmanFord(source);
+    state.result={kind:'bellman',...r,paths:reconstructPaths(source,r.p,r.d)};
+    if(r.negative)setStatus('<span class="warn">Graf mengandung negative cycle sehingga lintasan terpendek tidak dapat ditentukan secara valid.</span>','warn');
+    else setStatus(`Bellman-Ford selesai dari <b>${source}</b>. Klik baris vertex untuk menyorot lintasan.`);
+  }else if(state.method==='johnson'){
+    const r=johnson();state.result={kind:'johnson',...r};
+    if(r.negative)setStatus('<span class="warn">Graf mengandung negative cycle sehingga Johnson tidak dapat menghasilkan shortest path yang valid.</span>','warn');
+    else setStatus(`Johnson selesai: shortest path semua pasangan vertex telah dihitung.`);
+  }else{
+    const r=runAstar(source);state.result={kind:'astar',...r};
+    setStatus(`A* dijalankan dari <b>${source}</b> menuju setiap vertex secara bergantian. Heuristic memakai posisi 2D simpul.`);
+  }
+  renderResults();renderGraph();
+}
+
+function pathText(p){return p&&p.length?p.join(' → '):'Tidak tersedia'}
+function renderResults(){
+  const r=state.result;
+  if(!r){$('resultMeta').textContent='Belum ada algoritma yang dijalankan.';$('resultContent').innerHTML='<div class="empty">Jalankan salah satu metode untuk melihat proses algoritma dan hasil shortest path.</div>';return}
+  const source=$('sourceSelect').value;
+  $('resultMeta').textContent=`Metode: ${methodName()} • Sumber: ${source}`;
+  let html='';
+  if(r.kind==='bellman'){
+    html+=`<div class="method-box"><h3>Konsep Single Source Shortest Path</h3><div class="formula">relaksasi: d[v] ← min(d[v], d[u] + w(u,v))</div>${r.negative?'<p class="warn">⚠ Negative cycle terdeteksi.</p>':''}</div>`;
+    html+=`<h3>Iterasi Jarak</h3><div class="table-wrap"><table><thead><tr><th>Iterasi</th>${state.nodes.map(n=>`<th>${n.id}</th>`).join('')}</tr></thead><tbody>`;
+    r.iterations.forEach(it=>{html+=`<tr><td>${it.i}</td>${state.nodes.map(n=>`<td>${fmt(it.d[n.id])}</td>`).join('')}</tr>`});html+='</tbody></table></div>';
+    html+=`<h3 style="margin-top:18px">Tabel Relaksasi</h3><div class="table-wrap"><table><thead><tr><th>Iterasi</th><th>Sisi</th><th>Jarak Lama</th><th>Kandidat</th><th>Jarak Baru</th></tr></thead><tbody>`;
+    if(r.relax.length)r.relax.forEach(x=>html+=`<tr><td>${x.i}</td><td>${x.s}</td><td>${fmt(x.old)}</td><td>${x.cand}</td><td>${x.nw}</td></tr>`);
+    else html+='<tr><td colspan="5" class="inf">Tidak ada relaksasi yang mengubah jarak.</td></tr>';
+    html+='</tbody></table></div>';
+    html+=`<h3 style="margin-top:18px">Hasil Akhir</h3>${finalTable(state.nodes.map(n=>({id:n.id,dist:r.d[n.id],pred:r.p[n.id],path:r.paths[n.id]})))}`;
+  }
+  if(r.kind==='johnson'){
+    html+=`<div class="method-box"><h3>Johnson — All Pairs Shortest Path</h3><p style="color:var(--muted)">Vertex virtual q → Bellman-Ford → potensial h(v) → reweighting → Dijkstra dari setiap vertex.</p><div class="formula">w'(u,v) = w(u,v) + h(u) − h(v)</div></div>`;
+    html+=`<h3>1. Bellman-Ford pada Vertex Virtual</h3>${simpleTable(['Vertex','h(v)'],state.nodes.map(n=>[n.id,fmt(r.h?.[n.id])]))}`;
+    html+=`<h3 style="margin-top:18px">2. Reweighting Edge</h3>${simpleTable(['Edge','Bobot Asli','h(u)','h(v)','Bobot Baru'],r.rew.map(e=>[e.u+' → '+e.v,e.w,fmt(r.h[e.u]),fmt(r.h[e.v]),e.rw]))}`;
+    html+=`<h3 style="margin-top:18px">3. Hasil Dijkstra dari Setiap Vertex</h3>${simpleTable(['Sumber','Tujuan','Jarak Reweighted','Jarak Asli'],r.all.map(x=>[x.from,x.to,fmt(x.rw),fmt(x.dist)]))}`;
+    html+=`<h3 style="margin-top:18px">Hasil Akhir Semua Pasangan</h3>${simpleTable(['Dari','Ke','Jarak Terpendek','Lintasan'],r.all.map(x=>[x.from,x.to,fmt(x.dist),pathText(x.path)],true))}`;
+  }
+  if(r.kind==='astar'){
+    html+=`<div class="method-box"><h3>A* — satu sumber ke setiap tujuan</h3><div class="formula">f(n) = g(n) + h(n)</div><p style="color:var(--muted);margin-bottom:0">g(n) = biaya dari sumber; h(n) = estimasi Euclidean dari koordinat visual simpul. Skala heuristic mengikuti bobot positif terkecil agar tidak mendominasi biaya graf.</p></div>`;
+    html+=`<h3>Hasil A*</h3>${simpleTable(['Tujuan','Jarak','Lintasan'],r.rows.map(x=>[x.to,fmt(x.dist),pathText(x.path)],true))}`;
+    const firstTarget=r.rows.find(x=>x.to!==source);
+    if(firstTarget){
+      html+=`<h3 style="margin-top:18px">Proses A* — ${source} → ${firstTarget.to}</h3>${simpleTable(['Iterasi','Current','g(n)','h(n)','f(n)'],r.logsByTarget[firstTarget.to].map(x=>[x.i,x.current,x.g,x.h.toFixed(2),x.f.toFixed(2)]))}`;
+    }
+  }
+  $('resultContent').innerHTML=html;
+  $('resultContent').querySelectorAll('.result-row').forEach(row=>row.addEventListener('click',()=>{
+    const target=row.dataset.target;
+    const path=r.kind==='johnson'?r.paths[source+'|'+target]:r.paths[target];
+    state.targetId=target;highlightPath(path);renderGraph();
+  }));
+}
+function finalTable(rows){
+  return simpleTable(['Vertex','Jarak','Predecessor','Lintasan'],rows.map(x=>[x.id,fmt(x.dist),x.pred||'—',pathText(x.path)],true));
+}
+function simpleTable(headers,rows,clickable=false){
+  return `<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>`+
+    rows.map(row=>`<tr class="${clickable?'result-row':''}" ${clickable?`data-target="${esc(row[1])}"`:''}>${row.map((c,i)=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')+
+    `</tbody></table></div>`;
+}
+
+document.querySelectorAll('.methodBtn').forEach(btn=>btn.addEventListener('click',()=>{
+  state.method=btn.dataset.method;
+  document.querySelectorAll('.methodBtn').forEach(b=>b.classList.toggle('active',b===btn));
+  clearResult();updateAll();setStatus(`Metode aktif: <b>${methodName()}</b>.`);
+}));
+$('graphType').addEventListener('change',()=>{
+  state.type=$('graphType').value;clearResult();updateAll();
+  setStatus(`Mode graf diubah menjadi <b>${state.type==='directed'?'Berarah':'Tak Berarah'}</b>.`);
+});
+$('sourceSelect').addEventListener('change',()=>{$('sourceStat').textContent=$('sourceSelect').value});
+$('runBtn').addEventListener('click',runAlgorithm);
+$('resetBtn').addEventListener('click',resetExample);
+$('clearBtn').addEventListener('click',clearGraph);
+$('addNodeBtn').addEventListener('click',()=>{
+  state.mode=state.mode==='addNode'?null:'addNode';state.edgeStart=null;updateAll();
+  setStatus(state.mode==='addNode'?'Klik area kosong pada graf untuk menambahkan simpul.':'Mode tambah simpul dimatikan.');
+});
+$('addEdgeBtn').addEventListener('click',()=>{
+  state.mode=state.mode==='addEdge'?null:'addEdge';state.edgeStart=null;updateAll();
+  setStatus(state.mode==='addEdge'?'Klik dua simpul berurutan untuk membuat sisi.':'Mode tambah sisi dimatikan.');
+});
+$('deleteNodeBtn').addEventListener('click',()=>{
+  state.mode=state.mode==='delete'?null:'delete';state.edgeStart=null;updateAll();
+  setStatus(state.mode==='delete'?'Klik simpul yang ingin dihapus.':'Mode hapus simpul dimatikan.');
+});
+
+resetExample();
+</script>
+</body>
+</html>
