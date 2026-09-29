@@ -156,6 +156,10 @@ svg text{user-select:none}
       <div class="section-head"><h2>Pengaturan Lintasan</h2></div>
       <div class="controls">
         <div class="field"><label for="sourceSelect">Simpul Awal</label><select id="sourceSelect"></select></div>
+        <div class="field" id="targetNodeGroup" style="display:none">
+          <label for="targetSelect">Simpul Tujuan <span class="hint">(khusus A*)</span></label>
+          <select id="targetSelect"></select>
+        </div>
         <button id="runBtn" class="run">▶ Jalankan Algoritma</button>
         <div id="status" class="status">Pilih sumber dan metode, lalu jalankan algoritma.</div>
       </div>
@@ -246,7 +250,10 @@ function updateAll(){
   $('methodStat').textContent=methodName();
   $('sourceStat').textContent=$('sourceSelect').value||'—';
   $('modeStat').textContent=state.mode==='addNode'?'＋ Simpul':state.mode==='addEdge'?'＋ Sisi':state.mode==='delete'?'Hapus Simpul':'Pilih/lihat lintasan';
-  updateSourceOptions();renderGraph();
+  updateSourceOptions();
+  updateTargetOptions();
+  updateAlgorithmSettings();
+  renderGraph();
 }
 function updateSourceOptions(){
   const old=$('sourceSelect').value;
@@ -254,6 +261,18 @@ function updateSourceOptions(){
   if(state.nodes.some(n=>n.id===old)) $('sourceSelect').value=old;
   else if(state.nodes.length) $('sourceSelect').value=state.nodes[0].id;
   $('sourceStat').textContent=$('sourceSelect').value||'—';
+}
+function updateTargetOptions(){
+  const source=$('sourceSelect').value;
+  const old=$('targetSelect').value;
+  const candidates=state.nodes.filter(n=>n.id!==source);
+  $('targetSelect').innerHTML=candidates.map(n=>`<option value="${esc(n.id)}">${esc(n.id)}</option>`).join('');
+  if(candidates.some(n=>n.id===old)) $('targetSelect').value=old;
+  else if(candidates.length) $('targetSelect').value=candidates[0].id;
+}
+function updateAlgorithmSettings(){
+  const isAstar=state.method==='astar';
+  $('targetNodeGroup').style.display=isAstar?'grid':'none';
 }
 function methodName(){return state.method==='bellman'?'Bellman-Ford':state.method==='johnson'?'Johnson':'A* (A-Star)'}
 
@@ -461,33 +480,106 @@ function heuristic(a,b){
   return d*scale;
 }
 function astarOne(source,target){
-  if(source===target)return {dist:0,path:[source],logs:[{i:0,current:source,g:0,h:0,f:0}]};
-  const g=Object.fromEntries(state.nodes.map(n=>[n.id,Infinity])),p=Object.fromEntries(state.nodes.map(n=>[n.id,null]));
-  const open=new Set([source]),closed=new Set(),logs=[];g[source]=0;let iter=0;
+  if(source===target){
+    return {
+      dist:0,path:[source],
+      logs:[{
+        i:0,current:source,g:0,h:0,f:0,
+        open:[source],closed:[],action:'Sumber sekaligus tujuan.'
+      }],
+      details:[]
+    };
+  }
+
+  const g=Object.fromEntries(state.nodes.map(n=>[n.id,Infinity]));
+  const p=Object.fromEntries(state.nodes.map(n=>[n.id,null]));
+  const open=new Set([source]),closed=new Set(),logs=[],details=[];
+  g[source]=0;
+  let iter=0;
+
   while(open.size){
     let current=null,best=Infinity;
-    for(const n of open){const f=g[n]+heuristic(n,target);if(f<best){best=f;current=n}}
-    const hcur=heuristic(current,target);
-    logs.push({i:++iter,current,g:g[current],h:hcur,f:g[current]+hcur});
-    if(current===target){
-      const path=[];let x=current,guard=0;while(x&&guard++<=state.nodes.length){path.unshift(x);if(x===source)break;x=p[x]}
-      return {dist:g[target],path,logs};
+    for(const n of open){
+      const f=g[n]+heuristic(n,target);
+      if(f<best){best=f;current=n}
     }
-    open.delete(current);closed.add(current);
-    neighbors(current).forEach(e=>{
-      if(closed.has(e.v))return;
-      const cand=g[current]+e.w;
-      if(cand<g[e.v]){g[e.v]=cand;p[e.v]=current;open.add(e.v)}
+
+    const hcur=heuristic(current,target);
+    const fcur=g[current]+hcur;
+    iter++;
+
+    const openBefore=[...open];
+    const closedBefore=[...closed];
+
+    logs.push({
+      i:iter,current,g:g[current],h:hcur,f:fcur,
+      open:openBefore,closed:closedBefore,
+      action:current===target?'Tujuan dipilih — pencarian selesai.':'Node dengan f(n) terkecil dipilih sebagai current.'
     });
+
+    if(current===target){
+      const path=[];
+      let x=current,guard=0;
+      while(x&&guard++<=state.nodes.length){
+        path.unshift(x);
+        if(x===source)break;
+        x=p[x];
+      }
+      return {dist:g[target],path,logs,details};
+    }
+
+    open.delete(current);
+    closed.add(current);
+
+    neighbors(current).forEach(e=>{
+      if(closed.has(e.v)){
+        details.push({
+          i:iter,current,neighbor:e.v,
+          old:g[e.v],candidate:g[current]+e.w,
+          decision:'Diabaikan — node sudah CLOSED.',
+          predecessor:p[e.v]
+        });
+        return;
+      }
+
+      const candidate=g[current]+e.w;
+      const old=g[e.v];
+
+      if(candidate<old){
+        g[e.v]=candidate;
+        p[e.v]=current;
+        open.add(e.v);
+
+        details.push({
+          i:iter,current,neighbor:e.v,
+          old,candidate,
+          decision:Number.isFinite(old)?'Update g(n), predecessor dan OPEN.':'Masukkan ke OPEN dan tetapkan predecessor.',
+          predecessor:current
+        });
+      }else{
+        details.push({
+          i:iter,current,neighbor:e.v,
+          old,candidate,
+          decision:'Tidak di-update karena kandidat tidak lebih kecil.',
+          predecessor:p[e.v]
+        });
+      }
+    });
+
+    if(!open.size)break;
   }
-  return {dist:Infinity,path:null,logs};
+
+  return {dist:Infinity,path:null,logs,details};
 }
-function runAstar(source){
-  const rows=[],logsByTarget={};
-  for(const n of state.nodes){
-    const r=astarOne(source,n.id);rows.push({to:n.id,dist:r.dist,path:r.path});logsByTarget[n.id]=r.logs;
-  }
-  return {rows,logsByTarget,paths:Object.fromEntries(rows.map(r=>[r.to,r.path]))};
+
+function runAstar(source,target){
+  const r=astarOne(source,target);
+  return {
+    source,target,
+    dist:r.dist,path:r.path,
+    logs:r.logs,details:r.details,
+    paths:{[target]:r.path}
+  };
 }
 
 function runAlgorithm(){
@@ -504,8 +596,14 @@ function runAlgorithm(){
     if(r.negative)setStatus('<span class="warn">Graf mengandung negative cycle sehingga Johnson tidak dapat menghasilkan shortest path yang valid.</span>','warn');
     else setStatus(`Johnson selesai: shortest path semua pasangan vertex telah dihitung.`);
   }else{
-    const r=runAstar(source);state.result={kind:'astar',...r};
-    setStatus(`A* dijalankan dari <b>${source}</b> menuju setiap vertex secara bergantian. Heuristic memakai posisi 2D simpul.`);
+    const target=$('targetSelect').value;
+    if(!target || target===source){
+      showToast('Pilih simpul tujuan yang berbeda dari simpul awal.');
+      return;
+    }
+    const r=runAstar(source,target);
+    state.result={kind:'astar',...r};
+    setStatus(`A* selesai dari <b>${source}</b> menuju <b>${target}</b>. Klik hasil untuk menyorot lintasan.`);
   }
   renderResults();renderGraph();
 }
@@ -535,11 +633,73 @@ function renderResults(){
     html+=`<h3 style="margin-top:18px">Hasil Akhir Semua Pasangan</h3>${simpleTable(['Dari','Ke','Jarak Terpendek','Lintasan'],r.all.map(x=>[x.from,x.to,fmt(x.dist),pathText(x.path)],true))}`;
   }
   if(r.kind==='astar'){
-    html+=`<div class="method-box"><h3>A* — satu sumber ke setiap tujuan</h3><div class="formula">f(n) = g(n) + h(n)</div><p style="color:var(--muted);margin-bottom:0">g(n) = biaya dari sumber; h(n) = estimasi Euclidean dari koordinat visual simpul. Skala heuristic mengikuti bobot positif terkecil agar tidak mendominasi biaya graf.</p></div>`;
-    html+=`<h3>Hasil A*</h3>${simpleTable(['Tujuan','Jarak','Lintasan'],r.rows.map(x=>[x.to,fmt(x.dist),pathText(x.path)],true))}`;
-    const firstTarget=r.rows.find(x=>x.to!==source);
-    if(firstTarget){
-      html+=`<h3 style="margin-top:18px">Proses A* — ${source} → ${firstTarget.to}</h3>${simpleTable(['Iterasi','Current','g(n)','h(n)','f(n)'],r.logsByTarget[firstTarget.to].map(x=>[x.i,x.current,x.g,x.h.toFixed(2),x.f.toFixed(2)]))}`;
+    html+=`<div class="method-box">
+      <h3>A* — Single Source → Single Target</h3>
+      <div class="formula">f(n) = g(n) + h(n)</div>
+      <p style="color:var(--muted);margin-bottom:0">
+        <b>g(n)</b> = biaya aktual dari sumber ke n;
+        <b>h(n)</b> = estimasi Euclidean dari n ke tujuan;
+        <b>f(n)</b> = g(n) + h(n).
+        Heuristic menggunakan koordinat visual simpul.
+      </p>
+    </div>`;
+
+    html+=`<h3>1. Pengaturan A*</h3>
+      ${simpleTable(['Parameter','Nilai'],[
+        ['Simpul Awal',r.source],
+        ['Simpul Tujuan',r.target],
+        ['Heuristic','Euclidean berdasarkan posisi visual']
+      ])}`;
+
+    html+=`<h3 style="margin-top:18px">2. Proses Iterasi A*</h3>
+      <div class="table-wrap"><table>
+      <thead><tr><th>Iterasi</th><th>Current</th><th>g(n)</th><th>h(n)</th><th>f(n)</th><th>OPEN</th><th>CLOSED</th><th>Keputusan</th></tr></thead>
+      <tbody>`;
+
+    r.logs.forEach(x=>{
+      html+=`<tr>
+        <td>${x.i}</td><td>${esc(x.current)}</td>
+        <td>${fmt(x.g)}</td><td>${x.h.toFixed(2)}</td><td>${x.f.toFixed(2)}</td>
+        <td>${esc(x.open.join(', ')||'∅')}</td>
+        <td>${esc(x.closed.join(', ')||'∅')}</td>
+        <td>${esc(x.action)}</td>
+      </tr>`;
+    });
+    html+=`</tbody></table></div>`;
+
+    html+=`<h3 style="margin-top:18px">3. Pemeriksaan Tetangga dan Relaksasi</h3>
+      <div class="table-wrap"><table>
+      <thead><tr><th>Iterasi</th><th>Current</th><th>Tetangga</th><th>g Lama</th><th>g Kandidat</th><th>Keputusan</th><th>Predecessor</th></tr></thead>
+      <tbody>`;
+
+    if(r.details.length){
+      r.details.forEach(x=>{
+        html+=`<tr>
+          <td>${x.i}</td><td>${esc(x.current)}</td><td>${esc(x.neighbor)}</td>
+          <td>${fmt(x.old)}</td><td>${fmt(x.candidate)}</td>
+          <td>${esc(x.decision)}</td><td>${esc(x.predecessor||'—')}</td>
+        </tr>`;
+      });
+    }else{
+      html+=`<tr><td colspan="7" class="inf">Tidak ada pemeriksaan tetangga.</td></tr>`;
+    }
+    html+=`</tbody></table></div>`;
+
+    html+=`<h3 style="margin-top:18px">4. Hasil A*</h3>
+      ${simpleTable(['Dari','Ke','Jarak Terpendek','Lintasan'],[
+        [r.source,r.target,fmt(r.dist),pathText(r.path)]
+      ],true)}`;
+
+    if(r.path){
+      html+=`<div class="method-box" style="margin-top:13px">
+        <h3>Lintasan Terpilih</h3>
+        <div class="formula">${esc(pathText(r.path))} &nbsp; | &nbsp; biaya = ${fmt(r.dist)}</div>
+      </div>`;
+    }else{
+      html+=`<div class="method-box" style="margin-top:13px">
+        <h3 class="warn">Tidak Ada Lintasan</h3>
+        <p style="color:var(--muted);margin-bottom:0">Tidak ditemukan jalur dari ${esc(r.source)} ke ${esc(r.target)}.</p>
+      </div>`;
     }
   }
   $('resultContent').innerHTML=html;
@@ -567,7 +727,11 @@ $('graphType').addEventListener('change',()=>{
   state.type=$('graphType').value;clearResult();updateAll();
   setStatus(`Mode graf diubah menjadi <b>${state.type==='directed'?'Berarah':'Tak Berarah'}</b>.`);
 });
-$('sourceSelect').addEventListener('change',()=>{$('sourceStat').textContent=$('sourceSelect').value});
+$('sourceSelect').addEventListener('change',()=>{
+  $('sourceStat').textContent=$('sourceSelect').value;
+  updateTargetOptions();
+  if(state.method==='astar') clearResult();
+});
 $('runBtn').addEventListener('click',runAlgorithm);
 $('resetBtn').addEventListener('click',resetExample);
 $('clearBtn').addEventListener('click',clearGraph);
@@ -585,6 +749,7 @@ $('deleteNodeBtn').addEventListener('click',()=>{
 });
 
 resetExample();
+updateAlgorithmSettings();
 </script>
 </body>
 </html>
